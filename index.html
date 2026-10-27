@@ -1,0 +1,539 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>♡ Snake Game ♡</title>
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    text-align: center;
+    font-family: Arial, sans-serif;
+    color: #a52b61;
+    background: white;
+    background-image: repeating-linear-gradient(
+        0deg,
+        white 0px,
+        white 28px,
+        #ffd1e3 29px,
+        white 31px
+    );
+}
+
+h1 {
+    color: #d63384;
+    margin: 20px 0;
+    font-size: 34px;
+}
+
+.pantalla {
+    display: none;
+    padding: 15px;
+}
+
+.pantalla.activa {
+    display: block;
+}
+
+.panel {
+    background: rgba(255,255,255,0.96);
+    border: 2px solid #ff9fc8;
+    border-radius: 18px;
+    padding: 22px;
+    width: min(96%, 850px);
+    margin: 20px auto;
+    box-shadow: 0 4px 12px #f5b4d0;
+}
+
+#menu .panel,
+#ajustes .panel,
+#puntuaciones .panel,
+#final .panel {
+    max-width: 500px;
+}
+
+button, input {
+    font-size: 16px;
+    padding: 11px;
+    margin: 6px;
+    border-radius: 12px;
+    border: 2px solid #f28bb8;
+}
+
+button {
+    background: #ffc4dc;
+    color: #8f2454;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+button:hover {
+    background: #ff9fc8;
+}
+
+input {
+    width: min(90%, 280px);
+    background: white;
+}
+
+#juego .panel {
+    max-width: 900px;
+}
+
+#tablero {
+    display: block;
+    width: min(100%, 750px);
+    height: auto;
+    background: white;
+    border: 3px solid #f28bb8;
+    border-radius: 8px;
+    margin: 15px auto;
+}
+
+#historial {
+    padding: 0;
+    list-style: none;
+}
+
+#historial li {
+    margin: 8px;
+}
+
+.nota,
+.controles {
+    display: none;
+}
+
+@media (max-width: 600px) {
+    body {
+        min-width: 700px;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<h1>♡ SNAKE GAME ♡</h1>
+
+<!-- MENU PRINCIPAL -->
+<section id="menu" class="pantalla activa">
+    <div class="panel">
+        <h2>¡Bienvenido!</h2>
+        <p>Escribe tu nombre para jugar:</p>
+
+        <input id="nombre" type="text" maxlength="18"
+               placeholder="Tu nombre" value="Nori">
+
+        <br>
+        <button onclick="iniciar()">▶ PLAY</button>
+        <button onclick="mostrar('ajustes')">⚙ SETTINGS</button>
+        <button onclick="verHistorial()">🏆 PUNTUACIONES</button>
+    </div>
+</section>
+
+<!-- SETTINGS -->
+<section id="ajustes" class="pantalla">
+    <div class="panel">
+        <h2>♡ SETTINGS ♡</h2>
+        <h3>CONTROLES DEL JUEGO</h3>
+
+        <p>↑ Arriba: Flecha arriba o W</p>
+        <p>↓ Abajo: Flecha abajo o S</p>
+        <p>← Izquierda: Flecha izquierda o A</p>
+        <p>→ Derecha: Flecha derecha o D</p>
+        <p>ESC: Volver al menú</p>
+
+        <hr style="border:1px solid #ffd1e3">
+
+        <h3>♡ PREMIOS ♡</h3>
+        <p>🍭 10 puntos: Ganas un chupete.</p>
+        <p>🎁 50 puntos: Ganas un premio especial.</p>
+
+        <button onclick="mostrar('menu')">BACK TO MENU</button>
+    </div>
+</section>
+
+<!-- JUEGO -->
+<section id="juego" class="pantalla">
+    <div class="panel">
+        <h2 id="nombreJugador">Jugador</h2>
+
+        <p>Puntuación: <strong id="puntos">0</strong></p>
+        <p>Récord: <strong id="record">0</strong></p>
+        <p id="premio">¡Atrapa la comida!</p>
+
+        <canvas id="tablero" width="500" height="400"></canvas>
+
+        <button onclick="mostrar('menu')">VOLVER AL MENÚ</button>
+    </div>
+</section>
+
+<!-- FINAL DEL JUEGO -->
+<section id="final" class="pantalla">
+    <div class="panel">
+        <h2>♡ ¡FIN DEL JUEGO! ♡</h2>
+        <p id="mensajeFinal"></p>
+        <p>Tu puntuación: <strong id="puntosFinales">0</strong></p>
+        <p id="premioFinal"></p>
+
+        <button onclick="iniciar()">▶ JUGAR OTRA VEZ</button>
+        <button onclick="mostrar('menu')">VOLVER AL MENÚ</button>
+    </div>
+</section>
+
+<!-- HISTORIAL -->
+<section id="puntuaciones" class="pantalla">
+    <div class="panel">
+        <h2>🏆 PUNTUACIONES</h2>
+        <p>Récord: <strong id="recordHistorial">0</strong></p>
+
+        <ul id="historial"></ul>
+
+        <button onclick="borrarHistorial()">BORRAR HISTORIAL</button>
+        <button onclick="mostrar('menu')">VOLVER AL MENÚ</button>
+    </div>
+</section>
+
+<script>
+const canvas = document.getElementById("tablero");
+const ctx = canvas.getContext("2d");
+
+const columnas = 25;
+const filas = 20;
+const celda = 20;
+
+let serpiente = [];
+let comida = {x: 15, y: 10};
+
+let dx = 1;
+let dy = 0;
+let siguienteX = 1;
+let siguienteY = 0;
+
+let puntos = 0;
+let jugador = "Nori";
+let jugando = false;
+let temporizador = null;
+
+let record = Number(localStorage.getItem("snakeRecord")) || 0;
+
+let historial = JSON.parse(
+    localStorage.getItem("snakeHistorial") || "[]"
+);
+
+document.getElementById("record").textContent = record;
+
+function mostrar(id) {
+    detener();
+
+    document.querySelectorAll(".pantalla").forEach(pantalla => {
+        pantalla.classList.remove("activa");
+    });
+
+    document.getElementById(id).classList.add("activa");
+}
+
+function detener() {
+    jugando = false;
+
+    if (temporizador !== null) {
+        clearInterval(temporizador);
+        temporizador = null;
+    }
+}
+
+function iniciar() {
+    detener();
+
+    jugador = document.getElementById("nombre").value.trim() || "Nori";
+
+    puntos = 0;
+    dx = 1;
+    dy = 0;
+    siguienteX = 1;
+    siguienteY = 0;
+
+    serpiente = [
+        {x: 8, y: 10},
+        {x: 7, y: 10},
+        {x: 6, y: 10}
+    ];
+
+    document.getElementById("nombreJugador").textContent = jugador;
+    document.getElementById("puntos").textContent = puntos;
+    document.getElementById("record").textContent = record;
+    document.getElementById("premio").textContent = "¡Atrapa la comida!";
+
+    nuevaComida();
+
+    document.querySelectorAll(".pantalla").forEach(p => {
+        p.classList.remove("activa");
+    });
+
+    document.getElementById("juego").classList.add("activa");
+
+    jugando = true;
+    dibujar();
+
+    temporizador = setInterval(mover, 130);
+}
+
+function nuevaComida() {
+    do {
+        comida = {
+            x: Math.floor(Math.random() * columnas),
+            y: Math.floor(Math.random() * filas)
+        };
+    } while (
+        serpiente.some(parte =>
+            parte.x === comida.x && parte.y === comida.y
+        )
+    );
+}
+
+function dibujar() {
+    ctx.fillStyle = "white";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Rayitas rosadas
+    ctx.strokeStyle = "#ffe1ed";
+    ctx.lineWidth = 1;
+
+    for (let x = 0; x <= canvas.width; x += celda) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+        ctx.stroke();
+    }
+
+    for (let y = 0; y <= canvas.height; y += celda) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+        ctx.stroke();
+    }
+
+    // Comida
+    ctx.font = "18px Arial";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    ctx.fillText(
+        "🍓",
+        comida.x * celda + celda / 2,
+        comida.y * celda + celda / 2
+    );
+
+    // Serpiente
+    serpiente.forEach((parte, i) => {
+        ctx.fillStyle = i === 0 ? "#c2185b" : "#f06292";
+
+        ctx.fillRect(
+            parte.x * celda + 2,
+            parte.y * celda + 2,
+            celda - 4,
+            celda - 4
+        );
+
+        if (i === 0) {
+            ctx.fillStyle = "white";
+
+            ctx.beginPath();
+            ctx.arc(
+                parte.x * celda + 7,
+                parte.y * celda + 7,
+                2, 0, Math.PI * 2
+            );
+
+            ctx.arc(
+                parte.x * celda + 14,
+                parte.y * celda + 7,
+                2, 0, Math.PI * 2
+            );
+
+            ctx.fill();
+        }
+    });
+}
+
+function cambiarDireccion(x, y) {
+    if (!jugando) return;
+
+    if (x === -dx && y === -dy) return;
+
+    siguienteX = x;
+    siguienteY = y;
+}
+
+function mover() {
+    if (!jugando) return;
+
+    dx = siguienteX;
+    dy = siguienteY;
+
+    const cabeza = {
+        x: serpiente[0].x + dx,
+        y: serpiente[0].y + dy
+    };
+
+    // Choque con los bordes
+    if (
+        cabeza.x < 0 ||
+        cabeza.x >= columnas ||
+        cabeza.y < 0 ||
+        cabeza.y >= filas
+    ) {
+        terminar();
+        return;
+    }
+
+    const come =
+        cabeza.x === comida.x &&
+        cabeza.y === comida.y;
+
+    const cuerpo = come ? serpiente : serpiente.slice(0, -1);
+
+    if (cuerpo.some(parte =>
+        parte.x === cabeza.x && parte.y === cabeza.y
+    )) {
+        terminar();
+        return;
+    }
+
+    serpiente.unshift(cabeza);
+
+    if (come) {
+        puntos += 5;
+
+        document.getElementById("puntos").textContent = puntos;
+
+        if (puntos >= 50) {
+            document.getElementById("premio").textContent =
+                "🎁 ¡Ganaste el premio especial!";
+        } else if (puntos >= 10) {
+            document.getElementById("premio").textContent =
+                "🍭 ¡Ganaste un chupete!";
+        }
+
+        nuevaComida();
+    } else {
+        serpiente.pop();
+    }
+
+    dibujar();
+}
+
+function terminar() {
+    detener();
+
+    if (puntos > record) {
+        record = puntos;
+        localStorage.setItem("snakeRecord", record);
+    }
+
+    historial.push({
+        nombre: jugador,
+        puntos: puntos,
+        fecha: new Date().toLocaleDateString()
+    });
+
+    localStorage.setItem("snakeHistorial", JSON.stringify(historial));
+
+    document.getElementById("record").textContent = record;
+    document.getElementById("puntosFinales").textContent = puntos;
+    document.getElementById("mensajeFinal").textContent =
+        "¡Buen intento, " + jugador + "!";
+
+    let premio = "¡Sigue practicando!";
+
+    if (puntos >= 50) {
+        premio = "🎁 ¡Ganaste el premio especial por alcanzar 50 puntos!";
+    } else if (puntos >= 10) {
+        premio = "🍭 ¡Ganaste el chupete por alcanzar 10 puntos!";
+    }
+
+    document.getElementById("premioFinal").textContent = premio;
+
+    mostrar("final");
+}
+
+function actualizarHistorial() {
+    document.getElementById("recordHistorial").textContent = record;
+
+    const lista = document.getElementById("historial");
+    lista.innerHTML = "";
+
+    if (historial.length === 0) {
+        const item = document.createElement("li");
+        item.textContent = "Todavía no hay puntuaciones.";
+        lista.appendChild(item);
+        return;
+    }
+
+    historial.slice().reverse().forEach(partida => {
+        const item = document.createElement("li");
+
+        item.textContent =
+            partida.nombre + " — " + partida.puntos +
+            " puntos (" + partida.fecha + ")";
+
+        lista.appendChild(item);
+    });
+}
+
+function verHistorial() {
+    mostrar("puntuaciones");
+    actualizarHistorial();
+}
+
+function borrarHistorial() {
+    if (!confirm("¿Quieres borrar el historial de partidas?")) return;
+
+    historial = [];
+    localStorage.removeItem("snakeHistorial");
+    actualizarHistorial();
+}
+
+// CONTROLES DEL TECLADO
+document.addEventListener("keydown", function(e) {
+    const tecla = e.key.toLowerCase();
+
+    if (tecla === "escape") {
+        e.preventDefault();
+        mostrar("menu");
+        return;
+    }
+
+    if ([
+        "arrowup", "arrowdown",
+        "arrowleft", "arrowright"
+    ].includes(tecla)) {
+        e.preventDefault();
+    }
+
+    if (!jugando) return;
+
+    if (tecla === "arrowup" || tecla === "w") {
+        cambiarDireccion(0, -1);
+    } else if (tecla === "arrowdown" || tecla === "s") {
+        cambiarDireccion(0, 1);
+    } else if (tecla === "arrowleft" || tecla === "a") {
+        cambiarDireccion(-1, 0);
+    } else if (tecla === "arrowright" || tecla === "d") {
+        cambiarDireccion(1, 0);
+    }
+});
+
+dibujar();
+</script>
+
+</body>
+</html>
