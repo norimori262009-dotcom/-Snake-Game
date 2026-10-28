@@ -130,7 +130,7 @@ input {
         <p>Escribe tu nombre para jugar:</p>
 
         <input id="nombre" type="text" maxlength="18"
-               placeholder="Tu nombre" value="Nori">
+               placeholder="Tu nombre" autocomplete="off">
 
         <br>
         <button onclick="iniciar()">▶ PLAY</button>
@@ -151,12 +151,6 @@ input {
         <p>→ Derecha: Flecha derecha o D</p>
         <p>ESC: Volver al menú</p>
 
-        <hr style="border:1px solid #ffd1e3">
-
-        <h3>♡ PREMIOS ♡</h3>
-        <p>🍭 10 puntos: Ganas un chupete.</p>
-        <p>🎁 50 puntos: Ganas un premio especial.</p>
-
         <button onclick="mostrar('menu')">BACK TO MENU</button>
     </div>
 </section>
@@ -168,7 +162,6 @@ input {
 
         <p>Puntuación: <strong id="puntos">0</strong></p>
         <p>Récord: <strong id="record">0</strong></p>
-        <p id="premio">¡Atrapa la comida!</p>
 
         <canvas id="tablero" width="500" height="400"></canvas>
 
@@ -182,7 +175,6 @@ input {
         <h2>♡ ¡FIN DEL JUEGO! ♡</h2>
         <p id="mensajeFinal"></p>
         <p>Tu puntuación: <strong id="puntosFinales">0</strong></p>
-        <p id="premioFinal"></p>
 
         <button onclick="iniciar()">▶ JUGAR OTRA VEZ</button>
         <button onclick="mostrar('menu')">VOLVER AL MENÚ</button>
@@ -219,7 +211,7 @@ let siguienteX = 1;
 let siguienteY = 0;
 
 let puntos = 0;
-let jugador = "Nori";
+let jugador = "";
 let jugando = false;
 let temporizador = null;
 
@@ -251,9 +243,15 @@ function detener() {
 }
 
 function iniciar() {
-    detener();
+    jugador = document.getElementById("nombre").value.trim();
 
-    jugador = document.getElementById("nombre").value.trim() || "Nori";
+    if (jugador === "") {
+        alert("Por favor, escribe tu nombre para jugar.");
+        document.getElementById("nombre").focus();
+        return;
+    }
+
+    detener();
 
     puntos = 0;
     dx = 1;
@@ -270,7 +268,6 @@ function iniciar() {
     document.getElementById("nombreJugador").textContent = jugador;
     document.getElementById("puntos").textContent = puntos;
     document.getElementById("record").textContent = record;
-    document.getElementById("premio").textContent = "¡Atrapa la comida!";
 
     nuevaComida();
 
@@ -384,7 +381,7 @@ function mover() {
         y: serpiente[0].y + dy
     };
 
-    // Choque con los bordes
+    // Choque contra las paredes
     if (
         cabeza.x < 0 ||
         cabeza.x >= columnas ||
@@ -395,10 +392,12 @@ function mover() {
         return;
     }
 
-    const come =
+    const come = (
         cabeza.x === comida.x &&
-        cabeza.y === comida.y;
+        cabeza.y === comida.y
+    );
 
+    // Comprobar choque contra el cuerpo
     const cuerpo = come ? serpiente : serpiente.slice(0, -1);
 
     if (cuerpo.some(parte =>
@@ -415,13 +414,12 @@ function mover() {
 
         document.getElementById("puntos").textContent = puntos;
 
-        if (puntos >= 50) {
-            document.getElementById("premio").textContent =
-                "🎁 ¡Ganaste el premio especial!";
-        } else if (puntos >= 10) {
-            document.getElementById("premio").textContent =
-                "🍭 ¡Ganaste un chupete!";
+        if (puntos > record) {
+            record = puntos;
+            localStorage.setItem("snakeRecord", record);
         }
+
+        document.getElementById("record").textContent = record;
 
         nuevaComida();
     } else {
@@ -445,94 +443,102 @@ function terminar() {
         fecha: new Date().toLocaleDateString()
     });
 
-    localStorage.setItem("snakeHistorial", JSON.stringify(historial));
+    localStorage.setItem(
+        "snakeHistorial",
+        JSON.stringify(historial)
+    );
 
     document.getElementById("record").textContent = record;
+    document.getElementById("recordHistorial").textContent = record;
     document.getElementById("puntosFinales").textContent = puntos;
+
     document.getElementById("mensajeFinal").textContent =
         "¡Buen intento, " + jugador + "!";
-
-    let premio = "¡Sigue practicando!";
-
-    if (puntos >= 50) {
-        premio = "🎁 ¡Ganaste el premio especial por alcanzar 50 puntos!";
-    } else if (puntos >= 10) {
-        premio = "🍭 ¡Ganaste el chupete por alcanzar 10 puntos!";
-    }
-
-    document.getElementById("premioFinal").textContent = premio;
 
     mostrar("final");
 }
 
-function actualizarHistorial() {
-    document.getElementById("recordHistorial").textContent = record;
-
+function verHistorial() {
     const lista = document.getElementById("historial");
     lista.innerHTML = "";
 
-    if (historial.length === 0) {
-        const item = document.createElement("li");
-        item.textContent = "Todavía no hay puntuaciones.";
-        lista.appendChild(item);
-        return;
+    document.getElementById("recordHistorial").textContent = record;
+
+    const ordenado = [...historial].sort(
+        (a, b) => b.puntos - a.puntos
+    );
+
+    if (ordenado.length === 0) {
+        const elemento = document.createElement("li");
+        elemento.textContent = "Todavía no hay puntuaciones registradas.";
+        lista.appendChild(elemento);
+    } else {
+        ordenado.forEach((partida, i) => {
+            const elemento = document.createElement("li");
+
+            elemento.textContent =
+                (i + 1) + ". " +
+                partida.nombre + " — " +
+                partida.puntos + " puntos — " +
+                partida.fecha;
+
+            lista.appendChild(elemento);
+        });
     }
 
-    historial.slice().reverse().forEach(partida => {
-        const item = document.createElement("li");
-
-        item.textContent =
-            partida.nombre + " — " + partida.puntos +
-            " puntos (" + partida.fecha + ")";
-
-        lista.appendChild(item);
-    });
-}
-
-function verHistorial() {
     mostrar("puntuaciones");
-    actualizarHistorial();
 }
 
 function borrarHistorial() {
-    if (!confirm("¿Quieres borrar el historial de partidas?")) return;
+    if (confirm("¿Seguro que quieres borrar el historial?")) {
+        historial = [];
 
-    historial = [];
-    localStorage.removeItem("snakeHistorial");
-    actualizarHistorial();
+        localStorage.removeItem("snakeHistorial");
+
+        verHistorial();
+    }
 }
 
-// CONTROLES DEL TECLADO
-document.addEventListener("keydown", function(e) {
-    const tecla = e.key.toLowerCase();
+// Controles del teclado
+document.addEventListener("keydown", function(event) {
+    const tecla = event.key.toLowerCase();
+
+    const juegoActivo = document.getElementById("juego")
+        .classList.contains("activa");
 
     if (tecla === "escape") {
-        e.preventDefault();
         mostrar("menu");
         return;
     }
 
-    if ([
-        "arrowup", "arrowdown",
-        "arrowleft", "arrowright"
-    ].includes(tecla)) {
-        e.preventDefault();
-    }
+    if (!juegoActivo) return;
 
-    if (!jugando) return;
+    switch (tecla) {
+        case "arrowup":
+        case "w":
+            event.preventDefault();
+            cambiarDireccion(0, -1);
+            break;
 
-    if (tecla === "arrowup" || tecla === "w") {
-        cambiarDireccion(0, -1);
-    } else if (tecla === "arrowdown" || tecla === "s") {
-        cambiarDireccion(0, 1);
-    } else if (tecla === "arrowleft" || tecla === "a") {
-        cambiarDireccion(-1, 0);
-    } else if (tecla === "arrowright" || tecla === "d") {
-        cambiarDireccion(1, 0);
+        case "arrowdown":
+        case "s":
+            event.preventDefault();
+            cambiarDireccion(0, 1);
+            break;
+
+        case "arrowleft":
+        case "a":
+            event.preventDefault();
+            cambiarDireccion(-1, 0);
+            break;
+
+        case "arrowright":
+        case "d":
+            event.preventDefault();
+            cambiarDireccion(1, 0);
+            break;
     }
 });
-
-dibujar();
 </script>
 
 </body>
